@@ -120,6 +120,12 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1
 .add-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 0; color: var(--muted); font-size: 15px; font-weight: 600; border-bottom: 1px solid var(--line); }
 .add-row i { font-style: normal; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--muted); font-size: 16px; line-height: 1; font-weight: 500; }
 
+.add-inline { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1.5px solid var(--fg); }
+.add-inline input { min-width: 0; height: 44px; font-size: 17px; }
+.add-inline input:focus-visible { outline: none; }
+.add-inline [data-inline="name"] { flex: 1; font-weight: 600; }
+.add-inline [data-inline="amount"] { flex: none; width: 120px; text-align: right; font-variant-numeric: tabular-nums; }
+
 .foot { margin-top: 32px; text-align: center; }
 
 /* ---------- buttons ---------- */

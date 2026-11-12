@@ -1,5 +1,5 @@
 // Offline support: serve the app shell from cache, refresh it in the background.
-const CACHE = 'money-v1';
+const CACHE = 'money-v2';
 const FILES = [
   './',
   'index.html',

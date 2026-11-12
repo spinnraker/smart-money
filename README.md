@@ -14,10 +14,11 @@ There are no dependencies and no build step. To put it on your iPhone, host the 
 ## How a month goes
 
 1. **Plan.** Add income, then give it to debts and expenses until “left to budget” reaches $0.
-2. **Track.** Tap a line to enter what you spent, paid or received. The **Add** box adds to the total (for example, each grocery run).
-3. **Check.** Switch between **Planned**, **Spent** and **Remaining** at the top.
-4. **Next month.** Tap ›, then **Copy last month’s budget**. Lines, planned amounts and due days carry over, and nothing is marked spent yet. Or start empty.
-5. **Reset budget** (bottom of the month) gives three choices: set planned amounts to $0, copy last month, or start from scratch. You can undo it right after.
+2. **Add** lines right in the list: tap **+ Add expense**, type a name, press return, type the amount, press return. A fresh row opens for the next one. Tap a line later for details (due day, spent, balance).
+3. **Track.** Tap a line to enter what you spent, paid or received. The **Add** box adds to the total (for example, each grocery run).
+4. **Check.** Switch between **Planned**, **Spent** and **Remaining** at the top.
+5. **Next month.** Tap ›, then **Copy last month’s budget**. Lines, planned amounts and due days carry over, and nothing is marked spent yet. Or start empty.
+6. **Reset budget** (bottom of the month) gives three choices: set planned amounts to $0, copy last month, or start from scratch. You can undo it right after.
 
 ## Debts
 

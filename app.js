@@ -23,6 +23,8 @@
   let sheet = null;
   let showPaidOff = false;
   let undo = null; // { key, month } after a reset, until the next change
+  let adding = null; // section with the inline add row open
+  let quiet = false; // true while we redraw, so losing focus doesn't count as leaving the row
 
   // ---------- storage ----------
 
@@ -177,7 +179,12 @@
         <div class="sec-head"><h2 class="section-label">${s.title}</h2><span>${$(total)}</span></div>
         <div class="list">
           ${lines.map((l) => lineRow(section, l)).join('')}
-          <button class="add-row" data-action="add" data-section="${section}"><i aria-hidden="true">+</i>${s.add}</button>
+          ${adding === section
+            ? `<div class="add-inline" data-section="${section}">
+                <input type="text" data-inline="name" maxlength="60" autocomplete="off" enterkeyhint="next" placeholder="${s.one[0].toUpperCase() + s.one.slice(1)} name" aria-label="New ${s.one} name">
+                <input type="text" data-inline="amount" inputmode="decimal" autocomplete="off" enterkeyhint="done" placeholder="$0.00" aria-label="Planned amount">
+              </div>`
+            : `<button class="add-row" data-action="add" data-section="${section}"><i aria-hidden="true">+</i>${s.add}</button>`}
         </div>
       </section>`;
   }
@@ -507,9 +514,93 @@
     commit();
   }
 
+  // ---------- adding from the main screen ----------
+
+  function inlineEl(f) { return app.querySelector(`.add-inline [data-inline="${f}"]`); }
+
+  function redraw() {
+    quiet = true;
+    render();
+    quiet = false;
+  }
+
+  function openInline(section) {
+    if (adding && adding !== section) saveInline(false);
+    adding = section;
+    redraw();
+    const name = inlineEl('name');
+    if (name) name.focus();
+  }
+
+  /**
+   * Save what's typed in the inline row. Returns false if it needs fixing.
+   * keepOpen leaves a fresh row ready for the next one.
+   */
+  function saveInline(keepOpen, draw = true) {
+    const section = adding;
+    if (!section) return true;
+    const name = (inlineEl('name') || {}).value || '';
+    const rawAmt = (inlineEl('amount') || {}).value || '';
+    if (!name.trim()) {
+      if (rawAmt.trim()) { toast('Give it a name'); return false; }
+      adding = keepOpen ? section : null;
+      if (draw) redraw();
+      return true;
+    }
+    const planned = E.parseMoney(rawAmt);
+    if (planned == null) {
+      toast('That amount doesn’t look right');
+      const a = inlineEl('amount');
+      if (a) { a.focus(); a.select(); }
+      return false;
+    }
+    if (section === 'debt') E.addDebt(state, cur, { name, planned });
+    else E.month(state, cur)[section].push(E.line({ name, planned }));
+    adding = keepOpen ? section : null;
+    undo = null;
+    save();
+    if (!draw) return true;
+    redraw();
+    if (keepOpen) { const n = inlineEl('name'); if (n) n.focus(); }
+    return true;
+  }
+
+  function cancelInline() {
+    adding = null;
+    redraw();
+  }
+
+  app.addEventListener('keydown', (ev) => {
+    const f = ev.target.dataset && ev.target.dataset.inline;
+    if (!f) return;
+    if (ev.key === 'Escape') { cancelInline(); return; }
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    if (f === 'name') {
+      if (!ev.target.value.trim()) { cancelInline(); return; }
+      inlineEl('amount').focus();
+    } else {
+      saveInline(true);
+    }
+  });
+
+  // Tapping away from the row saves it (or closes it if it's empty).
+  app.addEventListener('focusout', (ev) => {
+    if (quiet || !adding || !ev.target.dataset || !ev.target.dataset.inline) return;
+    const row = ev.target.closest('.add-inline');
+    if (row && ev.relatedTarget && row.contains(ev.relatedTarget)) return;
+    setTimeout(() => {
+      if (!adding || (document.activeElement && document.activeElement.closest && document.activeElement.closest('.add-inline'))) return;
+      // Save now, redraw a moment later so the tap that moved focus still lands.
+      if (saveInline(false, false)) setTimeout(() => { if (!sheet) redraw(); }, 350);
+    }, 0);
+  });
+
   // ---------- events ----------
 
   function handle(el) {
+    // Any other tap saves the row being typed first.
+    if (adding && el.dataset.action !== 'add') saveInline(false, false);
     switch (el.dataset.action) {
       case 'view':
         view = el.dataset.view;
@@ -537,7 +628,7 @@
         break;
       }
       case 'add':
-        openSheet({ type: 'line', section: el.dataset.section, id: null }, '[data-f="name"]');
+        openInline(el.dataset.section);
         break;
       case 'edit':
         openSheet({ type: 'line', section: el.dataset.section, id: el.dataset.id },
