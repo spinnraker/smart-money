@@ -159,8 +159,17 @@
     }
     const amt = amountFor(l);
     const over = mode === 'remaining' && amt < 0;
-    const bar = mode === 'planned' || !l.actual ? ''
-      : `<div class="mini${l.actual > l.planned ? ' over' : ''}"><i style="width:${pct(l.actual, l.planned)}%"></i></div>`;
+    // Money going out (debt, expenses) always shows how much of it is paid.
+    const paying = section !== 'income';
+    const status = paying ? payStatus(l) : null;
+    let bar = '';
+    if (paying && (l.planned || l.actual)) {
+      bar = `<div class="pay${status.done ? ' done' : ''}${l.actual > l.planned ? ' over' : ''}" role="progressbar" aria-label="${esc(name)} paid"
+          aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct(l.actual, l.planned))}"><i style="width:${pct(l.actual, l.planned)}%"></i></div>
+        <span class="pay-text${status.done ? ' done' : ''}">${status.text}</span>`;
+    } else if (!paying && mode !== 'planned' && l.actual) {
+      bar = `<div class="mini"><i style="width:${pct(l.actual, l.planned)}%"></i></div>`;
+    }
     return `<button class="line" data-action="edit" data-section="${section}" data-id="${esc(l.id)}">
         <span class="line-head">
           <b>${esc(name)}</b>
@@ -171,12 +180,27 @@
       </button>`;
   }
 
+  /** What's left to pay on a line, for the label under its progress bar. */
+  function payStatus(l) {
+    const left = l.planned - l.actual;
+    if (l.planned > 0 && left <= 0) {
+      return { done: true, text: left < 0 ? `✓ Paid · ${$(-left)} over` : '✓ Paid' };
+    }
+    if (!l.actual) return { done: false, text: l.planned ? 'Not paid yet' : '' };
+    return { done: false, text: `${$(l.actual)} paid · <b>${$(left)} left</b>` };
+  }
+
+  function paidCount(lines) {
+    const due = lines.filter((l) => l.planned > 0);
+    return due.length ? `${due.filter((l) => l.actual >= l.planned).length} of ${due.length} paid` : '';
+  }
+
   function sectionBlock(section, m) {
     const s = SECTION[section];
     const lines = m[section];
     const total = lines.reduce((a, l) => a + amountFor(l), 0);
     return `<section class="sec">
-        <div class="sec-head"><h2 class="section-label">${s.title}</h2><span>${$(total)}</span></div>
+        <div class="sec-head"><h2 class="section-label">${s.title}${section !== 'income' && paidCount(lines) ? ` <small>· ${paidCount(lines)}</small>` : ''}</h2><span>${$(total)}</span></div>
         <div class="list">
           ${lines.map((l) => lineRow(section, l)).join('')}
           ${adding === section

@@ -117,6 +117,14 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1
 .mini > i { display: block; height: 100%; background: var(--fg); }
 .mini.over { height: 4px; }
 
+.pay { height: 6px; border-radius: 3px; background: var(--line); margin-top: 10px; overflow: hidden; }
+.pay > i { display: block; height: 100%; background: var(--fg); border-radius: 3px; transition: width .4s cubic-bezier(.2, .8, .2, 1); }
+.pay-text { display: block; font-size: 13px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.pay-text b { color: var(--fg); font-weight: 600; }
+.pay-text.done { color: var(--fg); font-weight: 600; }
+.line:has(.pay.done) .line-head b { color: var(--muted); }
+.section-label small { font-size: inherit; letter-spacing: inherit; font-weight: 500; }
+
 .add-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 0; color: var(--muted); font-size: 15px; font-weight: 600; border-bottom: 1px solid var(--line); }
 .add-row i { font-style: normal; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--muted); font-size: 16px; line-height: 1; font-weight: 500; }
 
