@@ -24,6 +24,7 @@
   let showPaidOff = false;
   let undo = null; // { key, month } after a reset, until the next change
   let adding = null; // section with the inline add row open
+  let reordering = null; // section in reorder mode
   let quiet = false; // true while we redraw, so losing focus doesn't count as leaving the row
 
   // ---------- storage ----------
@@ -199,8 +200,29 @@
     const s = SECTION[section];
     const lines = m[section];
     const total = lines.reduce((a, l) => a + amountFor(l), 0);
-    return `<section class="sec">
-        <div class="sec-head"><h2 class="section-label">${s.title}${section !== 'income' && paidCount(lines) ? ` <small>· ${paidCount(lines)}</small>` : ''}</h2><span>${$(total)}</span></div>
+    const ordering = reordering === section;
+    const head = `<div class="sec-head"><h2 class="section-label">${s.title}${section !== 'income' && paidCount(lines) ? ` <small>· ${paidCount(lines)}</small>` : ''}</h2>
+        ${ordering
+          ? `<button class="reorder-btn on" data-action="reorder" data-section="${section}">Done</button>`
+          : `<span class="sec-right">${lines.length > 1 ? `<button class="reorder-btn" data-action="reorder" data-section="${section}" aria-label="Reorder ${s.title.toLowerCase()}">Reorder</button>` : ''}<span>${$(total)}</span></span>`}
+      </div>`;
+    if (ordering) {
+      return `<section class="sec">${head}
+        <p class="hint">Drag ≡ or use the arrows.</p>
+        <div class="list reorder-list" data-section="${section}">
+          ${lines.map((l, i) => `<div class="rline" data-id="${esc(l.id)}" data-section="${section}">
+              <span class="handle" aria-hidden="true">≡</span>
+              <b>${esc(E.lineName(state, l))}</b>
+              <span class="amt">${$(l.planned)}</span>
+              <span class="arrows">
+                <button data-action="move-line" data-section="${section}" data-id="${esc(l.id)}" data-to="${i - 1}" aria-label="Move ${esc(E.lineName(state, l))} up" ${i === 0 ? 'disabled' : ''}>↑</button>
+                <button data-action="move-line" data-section="${section}" data-id="${esc(l.id)}" data-to="${i + 1}" aria-label="Move ${esc(E.lineName(state, l))} down" ${i === lines.length - 1 ? 'disabled' : ''}>↓</button>
+              </span>
+            </div>`).join('')}
+        </div>
+      </section>`;
+    }
+    return `<section class="sec">${head}
         <div class="list">
           ${lines.map((l) => lineRow(section, l)).join('')}
           ${adding === section
@@ -620,18 +642,71 @@
     }, 0);
   });
 
+  // ---------- drag to reorder ----------
+
+  let drag = null;
+
+  app.addEventListener('pointerdown', (ev) => {
+    const handleEl = ev.target.closest('.handle');
+    if (!handleEl) return;
+    const row = handleEl.closest('.rline');
+    ev.preventDefault();
+    try { handleEl.setPointerCapture(ev.pointerId); } catch (e) { /* not supported */ }
+    drag = { row, list: row.parentElement, y: ev.clientY, startIndex: rows(row.parentElement).indexOf(row) };
+    row.classList.add('dragging');
+  });
+
+  function rows(list) { return Array.from(list.querySelectorAll('.rline')); }
+
+  app.addEventListener('pointermove', (ev) => {
+    if (!drag) return;
+    ev.preventDefault();
+    // Scroll when dragging near the top or bottom of the screen.
+    const edge = 70;
+    let scroll = 0;
+    if (ev.clientY < edge) scroll = -12;
+    else if (ev.clientY > window.innerHeight - edge) scroll = 12;
+    if (scroll) { window.scrollBy(0, scroll); drag.y -= scroll; }
+    const { row, list } = drag;
+    const dy = ev.clientY - drag.y;
+    const next = row.nextElementSibling;
+    const prev = row.previousElementSibling;
+    if (next && dy > next.offsetHeight / 2) {
+      list.insertBefore(next, row);
+      drag.y += next.offsetHeight;
+    } else if (prev && dy < -prev.offsetHeight / 2) {
+      list.insertBefore(row, prev);
+      drag.y -= prev.offsetHeight;
+    }
+    row.style.transform = `translateY(${ev.clientY - drag.y}px)`;
+  });
+
+  function endDrag() {
+    if (!drag) return;
+    const { row, list, startIndex } = drag;
+    drag = null;
+    const to = rows(list).indexOf(row);
+    if (to !== startIndex && E.moveLine(state, cur, row.dataset.section, row.dataset.id, to)) commit();
+    else render();
+  }
+  app.addEventListener('pointerup', endDrag);
+  app.addEventListener('pointercancel', endDrag);
+
   // ---------- events ----------
 
   function handle(el) {
+    if (el.disabled) return;
     // Any other tap saves the row being typed first.
     if (adding && el.dataset.action !== 'add') saveInline(false, false);
     switch (el.dataset.action) {
       case 'view':
+        reordering = null;
         view = el.dataset.view;
         render();
         window.scrollTo(0, 0);
         break;
       case 'month':
+        reordering = null;
         cur = E.addMonths(cur, Number(el.dataset.delta));
         render();
         break;
@@ -649,6 +724,22 @@
         mode = 'planned';
         commit();
         toast(copy ? 'Copied. Adjust anything that changed.' : `${E.monthName(cur)} started`);
+        break;
+      }
+      case 'reorder':
+        reordering = reordering === el.dataset.section ? null : el.dataset.section;
+        render();
+        break;
+      case 'move-line': {
+        const { section, id, to } = el.dataset;
+        if (E.moveLine(state, cur, section, id, Number(to))) {
+          commit();
+          // Keep focus on the moved line's same arrow, so repeated taps keep moving it.
+          const dir = el.textContent.trim();
+          const btns = Array.from(app.querySelectorAll(`.rline[data-id="${CSS.escape(id)}"] button`));
+          const same = btns.find((b) => b.textContent.trim() === dir && !b.disabled) || btns.find((b) => !b.disabled);
+          if (same) same.focus({ preventScroll: true });
+        }
         break;
       }
       case 'add':

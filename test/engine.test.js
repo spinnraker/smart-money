@@ -147,6 +147,23 @@ test('reset by copying replaces the month, and its own payments do not count', (
   assert.equal(E.resetMonth(st, NOV, 'copy'), false); // nothing before November
 });
 
+test('moving a line reorders its section, and copies keep the order', () => {
+  const { st } = sample();
+  st.months[NOV].expenses.push(E.line({ name: 'Gas', planned: 8000 }));
+  const names = (k) => st.months[k].expenses.map((l) => l.name);
+  const gas = st.months[NOV].expenses[2].id;
+  assert.equal(E.moveLine(st, NOV, 'expenses', gas, 0), true);
+  assert.deepEqual(names(NOV), ['Gas', 'Rent', 'Food']);
+  const rent = st.months[NOV].expenses[1].id;
+  assert.equal(E.moveLine(st, NOV, 'expenses', rent, 99), true); // clamps to the end
+  assert.deepEqual(names(NOV), ['Gas', 'Food', 'Rent']);
+  assert.equal(E.moveLine(st, NOV, 'expenses', rent, 2), false); // already there
+  assert.equal(E.moveLine(st, NOV, 'expenses', 'nope', 0), false);
+  assert.equal(E.moveLine(st, DEC, 'expenses', rent, 0), false); // no such month
+  E.createMonth(st, DEC);
+  assert.deepEqual(names(DEC), ['Gas', 'Food', 'Rent']);
+});
+
 test('deleting a debt removes its lines everywhere', () => {
   const { st, debt } = sample();
   E.createMonth(st, DEC);

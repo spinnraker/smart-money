@@ -222,6 +222,19 @@
     return true;
   }
 
+  /** Move a line to a new position within its section. Order carries into copied months. */
+  function moveLine(state, key, section, id, to) {
+    const list = state.months[key] && state.months[key][section];
+    if (!list) return false;
+    const from = list.findIndex((l) => l.id === id);
+    if (from < 0) return false;
+    const t = Math.max(0, Math.min(list.length - 1, to));
+    if (t === from) return false;
+    const [l] = list.splice(from, 1);
+    list.splice(t, 0, l);
+    return true;
+  }
+
   function sum(lines, field) { return lines.reduce((a, l) => a + l[field], 0); }
 
   function totals(m) {
@@ -317,7 +330,7 @@
     parseMoney, money, plain,
     uid, freshState, emptyMonth, line, lineName, debtById,
     debtPaid, debtLeft, isPaidOff, setDebtLeft, addDebt, deleteDebt,
-    month, previousBudget, copyLines, createMonth, resetMonth, totals,
+    month, previousBudget, copyLines, createMonth, resetMonth, moveLine, totals,
     normalize, isBackup, toCsv,
   };
 });
