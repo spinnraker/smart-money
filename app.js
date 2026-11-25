@@ -3,6 +3,7 @@
 
   const E = window.MoneyEngine;
   const STORE = 'money:v1';
+  const VERSION = 5; // keep in step with CACHE in sw.js
 
   const SECTION = {
     income: { title: 'Income', one: 'income', actual: 'Received', add: 'Add income' },
@@ -341,6 +342,7 @@
         <button class="row-btn" data-action="csv"><b>Export for a spreadsheet</b><span>CSV</span></button>
       </div>
       <p class="hint" style="margin-top:20px">${plural(months, 'month')} budgeted. Everything stays on this phone. Nothing is sent anywhere, and there are no ads.</p>
+      <p class="hint">Version ${VERSION}</p>
       <h2 class="section-label">How it works</h2>
       <div class="rules">
         <p><b>Planned</b> <span>is the plan. Fill income first, then give it to debts and expenses until “left to budget” reaches $0.</span></p>
@@ -870,7 +872,22 @@
   window.addEventListener('pagehide', save);
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    // When a new version finishes downloading it takes over and we reload once,
+    // so updates show up on the next open instead of the one after.
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      save();
+      location.reload();
+    });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then((reg) => {
+        // A home-screen app can sit in the background for days; check whenever it comes back.
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+      })
+      .catch(() => {});
   }
 
   render();
